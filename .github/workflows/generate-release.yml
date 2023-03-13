@@ -91,19 +91,23 @@ jobs:
           prerelease-fragment: '${{ env.PRERELEASE }}'
         #${{ steps.new_version.outputs.updated-version }}
 
+
+      - name: Set tag name, prerelease version
+        run: |
+          # Set prerelease value
+          if [ "${PRERELEASE}" == "REMOVE" ]; then
+            echo "PRERELEASE=false" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE=true" >> $GITHUB_ENV
+          fi
+          echo "Prerelease is ${PRERELEASE}"
+
       - name: Create release
         uses: actions/create-release@v1
         env:
-            GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
         with:
             tag_name: '${{ steps.new_version.outputs.updated-version }}'
             release_name: '${{ steps.new_version.outputs.updated-version }}'
             body: ${{ github.event.pull_request.body }}
-      # - name: Generate release note
-      #   id: release_note
-      #   uses: release-drafter/release-drafter@v5
-      #   with:
-      #    confit-name: release-config.yml
-      #    disable-autolabeler: true
-      #   env:
-      #     GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+            prerelease: ${{ env.PRERELEASE }}

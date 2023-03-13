@@ -1,0 +1,111 @@
+name: release-action-template
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  update_release_note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Display source branch
+        run: echo "PR source branch is ${GITHUB_REF#refs/heads/}"
+
+      - name: Set branch name as variable
+        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+
+      # - name: Mapping variables branch to semantic version
+      #   uses: kanga333/variable-mapper@master
+      #   id: export
+      #   with:
+      #     key: "branch"
+      #     map: |
+      #       {
+      #         "branch": {
+      #           "release": "MAJOR",
+      #           "feature": "MINOR",
+      #           "hotfix": "MINOR",
+      #           "patch": "PATCH"
+      #         }
+      #       }
+      #     export_to: env
+      #     mode: overwrite
+
+      # ${{ env.${{ env.VERSION_TYPE }} }}
+      - name: Set version type
+        run: echo "VERSION_TYPE=$(echo ${{ env.BRANCH_NAME }} | cut -d'/' -f1)" >> $GITHUB_ENV
+
+      - name: Set Incremental variable
+        run: |
+          if [ "${{ env.VERSION_TYPE }}" == "release" ]; then
+            INCREMENTAL_TYPE="MAJOR"
+          if [ "${{ env.VERSION_TYPE }}" == "feature" ]; then
+            INCREMENTAL_TYPE="MINOR"
+          if [ "${{ env.VERSION_TYPE }}" == "hotfix" ]; then
+            INCREMENTAL_TYPE="MINOR"
+          if [ "${{ env.VERSION_TYPE }}" == "patch" ]; then
+            INCREMENTAL_TYPE="PATCH"
+          else
+            INCREMENTAL_TYPE="PATCH"
+          fi
+          echo "INCREMENTAL_TYPE=$INCREMENTAL_TYPE" >> $GITHUB_ENV
+
+      - name: Get latest release
+        id: latest_release
+        uses: actions/github-script@v4
+        with:
+          script: |
+            const { data: releases } = await github.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 1,
+            });
+            console.log(releases[0].tag_name.replace(/^v/, ''));
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      #https://github.com/marketplace/actions/update-semantic-version
+      - name: Set new semantic version
+        id: new_version
+        uses: cookbenjamin/update-version@v1.0.1
+        with:
+          current-version: '${{ steps.latest_release.outputs.result }}' #vX.Y.Z
+          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }} }}'
+        #${{ steps.new_version.outputs.updated-version }}
+
+      - name: Get pull request body
+        id: get_pull_request_body
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pullRequest } = await github.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            console.log(pullRequest.body);
+
+      - name: Create release
+        uses: actions/create-release@v1
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+            tag_name: '${{ steps.new_version.outputs.updated-version }}'
+            release_name: '${{ steps.new_version.outputs.updated-version }}'
+            body: ${{ steps.get_pull_request_body.outputs.result }}
+      # - name: Generate release note
+      #   id: release_note
+      #   uses: release-drafter/release-drafter@v5
+      #   with:
+      #    confit-name: release-config.yml
+      #    disable-autolabeler: true
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,4 @@
+[submodule "git-config"]
+	path = git-config
+	url = https://github.com/tmaxopensql/git-config.git
+	ignore = dirty

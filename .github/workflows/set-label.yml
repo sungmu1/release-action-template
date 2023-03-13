@@ -1,0 +1,14 @@
+name: auto labeling
+on:
+  pull_request:
+    types: [opened]
+    branches:
+      - main
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PRs
+        uses: ffittschen/pr-branch-labeler@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}

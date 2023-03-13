@@ -11,4 +11,4 @@ jobs:
       - name: Label PRs
         uses: ffittschen/pr-branch-labeler@v1
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GIT_ACCESS_TOKEN }}

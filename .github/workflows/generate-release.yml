@@ -12,15 +12,12 @@ jobs:
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
 
       - name: Display source branch
-        run: echo "PR source branch is ${GITHUB_REF#refs/heads/}"
+        run: echo "PR source branch is ${{ github.event.pull_request.head.ref }}"
 
       - name: Set branch name as variable
-        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+        run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
       # - name: Mapping variables branch to semantic version
       #   uses: kanga333/variable-mapper@master
@@ -47,11 +44,11 @@ jobs:
         run: |
           if [ "${{ env.VERSION_TYPE }}" == "release" ]; then
             INCREMENTAL_TYPE="MAJOR"
-          if [ "${{ env.VERSION_TYPE }}" == "feature" ]; then
+          elif [ "${{ env.VERSION_TYPE }}" == "feature" ]; then
             INCREMENTAL_TYPE="MINOR"
-          if [ "${{ env.VERSION_TYPE }}" == "hotfix" ]; then
+          elif [ "${{ env.VERSION_TYPE }}" == "hotfix" ]; then
             INCREMENTAL_TYPE="MINOR"
-          if [ "${{ env.VERSION_TYPE }}" == "patch" ]; then
+          elif [ "${{ env.VERSION_TYPE }}" == "patch" ]; then
             INCREMENTAL_TYPE="PATCH"
           else
             INCREMENTAL_TYPE="PATCH"
@@ -77,7 +74,7 @@ jobs:
         uses: cookbenjamin/update-version@v1.0.1
         with:
           current-version: '${{ steps.latest_release.outputs.result }}' #vX.Y.Z
-          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }} }}'
+          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }}'
         #${{ steps.new_version.outputs.updated-version }}
 
       - name: Get pull request body

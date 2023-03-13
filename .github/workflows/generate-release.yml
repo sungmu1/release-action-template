@@ -12,15 +12,12 @@ jobs:
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
 
       - name: Display source branch
-        run: echo "PR source branch is ${GITHUB_REF#refs/heads/}"
+        run: echo "PR source branch is ${{ github.event.pull_request.head.ref }}"
 
       - name: Set branch name as variable
-        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+        run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
       # - name: Mapping variables branch to semantic version
       #   uses: kanga333/variable-mapper@master
@@ -47,51 +44,52 @@ jobs:
         run: |
           if [ "${{ env.VERSION_TYPE }}" == "release" ]; then
             INCREMENTAL_TYPE="MAJOR"
-          if [ "${{ env.VERSION_TYPE }}" == "feature" ]; then
+          elif [ "${{ env.VERSION_TYPE }}" == "feature" ]; then
             INCREMENTAL_TYPE="MINOR"
-          if [ "${{ env.VERSION_TYPE }}" == "hotfix" ]; then
+          elif [ "${{ env.VERSION_TYPE }}" == "hotfix" ]; then
             INCREMENTAL_TYPE="MINOR"
-          if [ "${{ env.VERSION_TYPE }}" == "patch" ]; then
+          elif [ "${{ env.VERSION_TYPE }}" == "patch" ]; then
             INCREMENTAL_TYPE="PATCH"
           else
             INCREMENTAL_TYPE="PATCH"
           fi
           echo "INCREMENTAL_TYPE=$INCREMENTAL_TYPE" >> $GITHUB_ENV
 
-      - name: Get latest release
-        id: latest_release
-        uses: actions/github-script@v4
+      - name: Get Current Release
+        id: get_current_release
+        uses: joutvhu/get-release@v1
         with:
-          script: |
-            const { data: releases } = await github.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 1,
-            });
-            console.log(releases[0].tag_name.replace(/^v/, ''));
-          github-token: ${{ secrets.GIT_ACCESS_TOKEN }}
+          latest: true
+          # Tag name start with `v`
+          pattern: '^v.*'
+          # Including pre-release
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+
+      - name: Set tag name, prerelease version
+        run: |
+          # Remove 'v' from tag name
+          echo "TAG_NAME=$(echo "${{ steps.get_current_release.outputs.tag_name }}" | sed 's/^v//')" >> $GITHUB_ENV
+          echo "Current tag name is ${TAG_NAME}"
+
+          # Set prerelease value
+          if [ -z "${{ steps.get_current_release.outputs.prerelease }}" ]; then
+            echo "PRERELEASE='REMOVE'" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE="${{ steps.get_current_release.outputs.prerelease }}"" >> $GITHUB_ENV
+          fi
+          echo "Prerelease is ${PRERELEASE}"
 
       #https://github.com/marketplace/actions/update-semantic-version
       - name: Set new semantic version
         id: new_version
         uses: cookbenjamin/update-version@v1.0.1
         with:
-          current-version: '${{ steps.latest_release.outputs.result }}' #vX.Y.Z
-          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }} }}'
+          current-version: '${{ env.TAG_NAME }}' #vX.Y.Z
+          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }}'
+          prerelease-fragment: '${{ env.PRERELEASE }}'
         #${{ steps.new_version.outputs.updated-version }}
-
-      - name: Get pull request body
-        id: get_pull_request_body
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GIT_ACCESS_TOKEN }}
-          script: |
-            const { data: pullRequest } = await github.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
-            });
-            console.log(pullRequest.body);
 
       - name: Create release
         uses: actions/create-release@v1
@@ -100,7 +98,7 @@ jobs:
         with:
             tag_name: '${{ steps.new_version.outputs.updated-version }}'
             release_name: '${{ steps.new_version.outputs.updated-version }}'
-            body: ${{ steps.get_pull_request_body.outputs.result }}
+            body: ${{ github.event.pull_request.body }}
       # - name: Generate release note
       #   id: release_note
       #   uses: release-drafter/release-drafter@v5

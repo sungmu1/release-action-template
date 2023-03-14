@@ -2,6 +2,9 @@
 release:
   head: "release"
 
+prerelease:
+  head: "release/pre/*"
+
 # Apply label "feature" if head matches "feature/*"
 feature:
   head: "feature/*"

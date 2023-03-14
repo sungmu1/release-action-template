@@ -19,24 +19,6 @@ jobs:
       - name: Set branch name as variable
         run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
-      # - name: Mapping variables branch to semantic version
-      #   uses: kanga333/variable-mapper@master
-      #   id: export
-      #   with:
-      #     key: "branch"
-      #     map: |
-      #       {
-      #         "branch": {
-      #           "release": "MAJOR",
-      #           "feature": "MINOR",
-      #           "hotfix": "MINOR",
-      #           "patch": "PATCH"
-      #         }
-      #       }
-      #     export_to: env
-      #     mode: overwrite
-
-      # ${{ env.${{ env.VERSION_TYPE }} }}
       - name: Set version type
         run: echo "VERSION_TYPE=$(echo ${{ env.BRANCH_NAME }} | cut -d'/' -f1)" >> $GITHUB_ENV
 
@@ -55,31 +37,40 @@ jobs:
           fi
           echo "INCREMENTAL_TYPE=$INCREMENTAL_TYPE" >> $GITHUB_ENV
 
+      # - name: Get Current Release
+      #   id: get_current_release
+      #   uses: joutvhu/get-release@v1
+      #   with:
+      #     latest: true
+      #     # Tag name start with `v`
+      #     pattern: '^v.*'
+      #     # Including pre-release
+      #     prerelease: true
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
       - name: Get Current Release
         id: get_current_release
-        uses: joutvhu/get-release@v1
-        with:
-          latest: true
-          # Tag name start with `v`
-          pattern: '^v.*'
-          # Including pre-release
-          prerelease: true
+        uses: pozetroninc/github-action-get-latest-release@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+        with:
+          owner: sungmu1
+          repo: release-action-template
+          token: ${{ secrets.GIT_ACCESS_TOKEN }}
 
       - name: Set tag name, prerelease version
         run: |
           # Remove 'v' from tag name
-          echo "TAG_NAME=$(echo "${{ steps.get_current_release.outputs.tag_name }}" | sed 's/^v//')" >> $GITHUB_ENV
-          echo "Current tag name is ${TAG_NAME}"
+          # echo "TAG_NAME=$(echo "${{ steps.get_current_release.outputs.tag_name }}" | sed 's/^v//')" >> $GITHUB_ENV
+          echo "TAG_NAME=$(echo "${{ steps.get_current_release.outputs.release }}" | cut -d'-' -f1 | sed 's/^v//')" >> $GITHUB_ENV
+          echo "Current tag name is ${{ env.TAG_NAME }}"
 
-          # Set prerelease value
-          if [ "${{ steps.get_current_release.outputs.prerelease }}" == "false" ]; then
+          # # Set prerelease value
+          echo "PRERELEASE=$(echo "${{ steps.get_current_release.outputs.release }}" | cut -d'-' -f2)" >> $GITHUB_ENV
+          if [ -z "${{ env.PRERELEASE }}" ]; then
             echo "PRERELEASE="REMOVE"" >> $GITHUB_ENV
-          else
-            echo "PRERELEASE="${{ steps.get_current_release.outputs.prerelease }}"" >> $GITHUB_ENV
           fi
-          echo "Prerelease is ${PRERELEASE}"
+          echo "Prerelease is ${{ env.PRERELEASE }}"
 
       #https://github.com/marketplace/actions/update-semantic-version
       - name: Set new semantic version
@@ -91,12 +82,14 @@ jobs:
           prerelease-fragment: '${{ env.PRERELEASE }}'
         #${{ steps.new_version.outputs.updated-version }}
 
-
       - name: Set tag name, prerelease version
         run: |
           # Set prerelease value
           if [ "${PRERELEASE}" == "REMOVE" ]; then
             echo "PRERELEASE=false" >> $GITHUB_ENV
+          elif [ -z "${PRERELEASE}" ]; then
+            echo "[ERROR] PRERELEASE is not valid."
+            exit 1;
           else
             echo "PRERELEASE=true" >> $GITHUB_ENV
           fi

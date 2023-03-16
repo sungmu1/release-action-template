@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+env:
+  UPDATED_VERSION:
+
 jobs:
   update_release_note:
     runs-on: ubuntu-latest
@@ -75,16 +78,7 @@ jobs:
             fi
           fi
 
-      #https://github.com/marketplace/actions/update-semantic-version
-      - name: Set new semantic version
-        id: new_version
-        uses: cookbenjamin/update-version@v1.0.1
-        with:
-          current-version: '${{ env.CURRENT_TAG_NAME }}' #X.Y.Z
-          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }}'
-          prerelease-fragment: '${{ env.PRERELEASE_TYPE }}'
-
-      - name: Set tag name, prerelease version
+      - name: Set prerelease version
         run: |
           # Set prerelease value
           if [ "${{ env.PRERELEASE_TYPE }}" == "REMOVE" ]; then
@@ -96,17 +90,30 @@ jobs:
             echo "PRERELEASE=true" >> $GITHUB_ENV
           fi
 
+      #https://github.com/marketplace/actions/update-semantic-version
+      - name: Set new semantic version
+        id: new_version
+        uses: cookbenjamin/update-version@v1.0.1
+        with:
+          current-version: '${{ env.CURRENT_TAG_NAME }}' #X.Y.Z
+          increment-version-fragment: '${{ env.INCREMENTAL_TYPE }}'
+          prerelease-fragment: '${{ env.PRERELEASE_TYPE }}'
+
+      - name: Set updated version
+        run: echo "UPDATED_VERSION=${{ steps.new_version.outputs.updated-version }}" >> $GITHUB_ENV
+
       - name: Create release
         uses: actions/create-release@v1
         env:
             GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
         with:
-            tag_name: 'v${{ steps.new_version.outputs.updated-version }}'
-            release_name: 'v${{ steps.new_version.outputs.updated-version }}'
+            tag_name: 'v${{ env.UPDATED_VERSION }}'
+            release_name: 'v${{ env.UPDATED_VERSION }}'
             body: ${{ github.event.pull_request.body }}
             prerelease: ${{ env.PRERELEASE }}
 
   custom-action:
-    runs-on: ubuntu-latest
     needs: update_release_note
     uses: ./.github/workflows/custom-action.yml
+    with:
+      updated_version: '${{ env.UPDATED_VERSION }}'

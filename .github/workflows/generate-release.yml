@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
     outputs:
-      updated_vserion: ${{ steps.new_version.outputs.updated-version }}
+      updated_version: ${{ steps.new_version.outputs.updated-version }}
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v2
@@ -99,6 +99,7 @@ jobs:
           prerelease-fragment: '${{ env.PRERELEASE_TYPE }}'
 
       - name: Set updated version
+        id: set_updated_version
         run: |
           echo "UPDATED_VERSION=${{ steps.new_version.outputs.updated-version }}" >> $GITHUB_ENV
 

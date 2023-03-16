@@ -6,13 +6,12 @@ on:
     branches:
       - main
 
-env:
-  UPDATED_VERSION:
-
 jobs:
   update_release_note:
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
+    outputs:
+      updated_vserion: ${{ steps.new_version.outputs.updated-version }}
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v2
@@ -100,7 +99,8 @@ jobs:
           prerelease-fragment: '${{ env.PRERELEASE_TYPE }}'
 
       - name: Set updated version
-        run: echo "UPDATED_VERSION=${{ steps.new_version.outputs.updated-version }}" >> $GITHUB_ENV
+        run: |
+          echo "UPDATED_VERSION=${{ steps.new_version.outputs.updated-version }}" >> $GITHUB_ENV
 
       - name: Create release
         uses: actions/create-release@v1
@@ -116,4 +116,4 @@ jobs:
     needs: update_release_note
     uses: ./.github/workflows/custom-action.yml
     with:
-      updated_version: '${{ env.UPDATED_VERSION }}'
+      updated_version: ${{ needs.update_release_note.outputs.updated_version }}
